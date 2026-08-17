@@ -8,12 +8,18 @@ st.set_page_config(page_title="NOVA Intake Governance Agent", layout="wide")
 st.title("🚀 NOVA AI Intake & Risk Governance Portal")
 st.markdown("Automated Technical Read, Compliance Screening, and KPI Tracking for Enterprise AI Proposals.")
 
-# --- Initialize Gemini Client ---
-# (Make sure to replace this with your actual key or use a secure method)
-API_KEY = "YOUR_ACTUAL_API_KEY_HERE"
-client = genai.Client(api_key=API_KEY)
+# --- Secure API Key Initialization ---
+try:
+    if "GEMINI_API_KEY" in st.secrets:
+        API_KEY = st.secrets["GEMINI_API_KEY"]
+    else:
+        API_KEY = "YOUR_LOCAL_API_KEY_HERE"  # Change this only if testing locally on your PC
+        
+    client = genai.Client(api_key=API_KEY)
+except Exception as e:
+    st.error(f"Failed to initialize Gemini Client: {e}")
 
-# --- Define Tools ---
+# --- Define Tools (The Agent's Capabilities) ---
 def check_compliance_database(policy_topic: str) -> str:
     """Checks internal corporate policy and compliance risk databases for data privacy rules."""
     rules = {
@@ -32,7 +38,7 @@ def calculate_nova_kpis(project_complexity: str) -> str:
 
 enterprise_tools = [check_compliance_database, calculate_nova_kpis]
 
-# --- User Input Section ---
+# --- User Input Section on the Web Page ---
 st.subheader("📝 Submit a Business Proposal for Intake Screening")
 proposal_input = st.text_area(
     "Enter project description or paste intake notes:", 
@@ -42,11 +48,12 @@ proposal_input = st.text_area(
 complexity_choice = st.selectbox("Select Initial Project Complexity Estimate:", ["Medium", "High"])
 
 if st.button("Run AI Intake Committee Review"):
-    if not API_KEY or API_KEY == "YOUR_ACTUAL_API_KEY_HERE":
-        st.error("Please insert your actual Gemini API key in the code first!")
+    if API_KEY == "YOUR_LOCAL_API_KEY_HERE" and "GEMINI_API_KEY" not in st.secrets:
+        st.error("API Key not found! Please configure GEMINI_API_KEY in Streamlit Secrets or update your local fallback key.")
     else:
         with st.spinner("🧠 NOVA AI Agent is analyzing technical feasibility, compliance risks, and KPIs..."):
             try:
+                # Create chat session with tools enabled using the flash model
                 chat = client.chats.create(
                     model='gemini-3.6-flash',
                     config=types.GenerateContentConfig(
@@ -60,7 +67,7 @@ if st.button("Run AI Intake Committee Review"):
                     )
                 )
                 
-                # Combine user input with complexity context
+                # Send proposal into the agent loop
                 full_query = f"Proposal: {proposal_input} | Complexity Level: {complexity_choice}"
                 response = chat.send_message(full_query)
                 
